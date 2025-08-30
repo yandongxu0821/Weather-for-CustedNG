@@ -6,10 +6,32 @@ const CACHE_FILE = path.resolve(process.cwd(), './yesterday.json');
 function formatDate(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
+
+function formatTimeHHMM(str) {
+  // 输入: "2025-08-30T15:51+08:00" 或 "2025-08-30 15:51"
+  if (!str) return '';
+  const m = str.match(/T?(\d{2}:\d{2})/);
+  return m ? m[1] : str;
+}
+
+function formatDateLabel(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  if (isNaN(d)) return dateStr;
+  const weekdays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
+  return `${d.getDate()}日${weekdays[d.getDay()]}`;
+}
+
+function formatTempLabel(temp, isHigh) {
+  if (!temp && temp !== 0) return '';
+  return (isHigh ? '高温 ' : '低温 ') + temp + '℃';
+}
+
 function parseDateKey(dateKey) {
   const [y, m, d] = (dateKey || '').split('-').map(Number);
   return Number.isFinite(y) ? new Date(y, (m || 1) - 1, d || 1) : null;
 }
+
 function addDays(dateKey, delta) {
   const d = parseDateKey(dateKey) || new Date();
   d.setDate(d.getDate() + delta);
@@ -25,6 +47,7 @@ async function loadCache() {
     return {};
   }
 }
+
 async function saveCache(cacheObj) {
   await fs.writeFile(CACHE_FILE, JSON.stringify(cacheObj, null, 2), 'utf8');
 }
@@ -110,7 +133,7 @@ export async function adaptWeather(src) {
     ok: true,
     data: {
       city: src.city || '',
-      updatetime: src.updateTime || src.now?.obsTime || '',
+      updatetime: formatTimeHHMM(src.updateTime || src.now?.obsTime || ''),
       wendu: src.now?.temp || '',
       fengli: src.now?.windScale || src.now?.windSpeed || '',
       shidu: src.now?.humidity || '',
@@ -122,9 +145,9 @@ export async function adaptWeather(src) {
       yesterday: mapDailyToYesterdayShape(yesterdayDaily),
       forecast: {
         weather: (src.daily || []).map(d => ({
-          date: d.fxDate || d.date || '',
-          high: d.tempMax || d.temp_max || '',
-          low: d.tempMin || d.temp_min || '',
+          date: formatDateLabel(d.fxDate || d.date || ''),
+          high: formatTempLabel(d.tempMax || d.temp_max || '', true),
+          low: formatTempLabel(d.tempMin || d.temp_min || '', false),
           day: {
             type: d.textDay || d.text_day || '',
             fengxiang: d.windDirDay || d.wind_dir_day || '',
@@ -137,9 +160,10 @@ export async function adaptWeather(src) {
           }
         }))
       },
-      zhishus: { zhishu: [] } // 此处不做生活指数获取
+      zhishus: { zhishu: [] }
     }
   };
+
 
   return result;
 }

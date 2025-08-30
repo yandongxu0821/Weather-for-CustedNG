@@ -1,5 +1,5 @@
 import express from "express";
-import "dotenv";
+import "dotenv/config";
 import { getWeather } from "./qweather-api.js";
 import { adaptWeather } from "./adapter.js";
 

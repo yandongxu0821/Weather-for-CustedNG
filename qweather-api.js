@@ -4,9 +4,32 @@ import { generateJWT } from './jwt.js';
 const API_HOST = process.env.QWEATHER_API_HOST;
 const LOCATION_ID = process.env.QWEATHER_LOCATION_ID;
 
+// 缓存对象，保存 token 和到期时间戳
+let jwtCache = {
+  token: null,
+  expireAt: 0
+};
+
+// 默认 JWT 有效期 12 小时，这里取 11.5 小时作为阈值，提前半小时刷新
+const JWT_TTL_MS = 12 * 60 * 60 * 1000;  // 12 小时
+const REFRESH_BEFORE_MS = 30 * 60 * 1000; // 提前 30 分钟刷新
+
 function authHeaders() {
-  const jwt = generateJWT();
-  return { 'Authorization': `Bearer ${jwt}` };
+  const now = Date.now();
+
+  // 检查是否需要刷新
+  if (
+    !jwtCache.token ||           // 没有缓存
+    now >= jwtCache.expireAt - REFRESH_BEFORE_MS // 已到刷新时间
+  ) {
+    const jwt = generateJWT();
+    jwtCache = {
+      token: jwt,
+      expireAt: now + JWT_TTL_MS
+    };
+  }
+
+  return { Authorization: `Bearer ${jwtCache.token}` };
 }
 
 /**
